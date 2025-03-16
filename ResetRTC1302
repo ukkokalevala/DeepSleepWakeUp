@@ -1,0 +1,25 @@
+#include <ThreeWire.h>
+#include <RtcDS1302.h>
+
+// DS1302 RTC module pins
+#define RtcCLK 2
+#define RtcDAT 3
+#define RtcRST 4
+
+ThreeWire myWire(RtcDAT, RtcCLK, RtcRST); // Correct ThreeWire initialization
+RtcDS1302<ThreeWire> rtc(myWire);
+
+void setup() {
+  Serial.begin(115200);
+  rtc.Begin();
+
+  // Set the RTC to Cape Town time (2025, 3, 14, 16, 21, 45)
+  RtcDateTime dt(2025, 3, 14, 15, 50, 45);  // Set correct local time manually
+  rtc.SetDateTime(dt);
+
+  Serial.println("RTC Time Set to Cape Town Time!");
+}
+
+void loop() {
+  // Nothing here, just setting the RTC time
+}
