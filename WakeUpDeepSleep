@@ -1,0 +1,84 @@
+#include <Wire.h>
+#include <RtcDS1302.h>
+#include <LiquidCrystal_I2C.h>
+#include <esp_sleep.h>
+
+#define DS1302_CLK 2  // Clock Pin
+#define DS1302_DAT 3  // Data Pin
+#define DS1302_RST 4  // Reset Pin (Used for wake-up)
+#define ONBOARD_LED 8 // Onboard LED Pin
+
+#define LCD_ADDR 0x27  // I2C Address of LCD 1602
+#define LCD_COLS 16
+#define LCD_ROWS 2
+
+ThreeWire myWire(DS1302_DAT, DS1302_CLK, DS1302_RST);
+RtcDS1302<ThreeWire> rtc(myWire);
+LiquidCrystal_I2C lcd(LCD_ADDR, LCD_COLS, LCD_ROWS);
+
+RTC_DATA_ATTR int bootCount = 0;  // Stored in RTC memory
+
+void setup() {
+    Serial.begin(115200);
+    Wire.begin(7, 6);
+    pinMode(ONBOARD_LED, OUTPUT);
+    pinMode(DS1302_RST, INPUT_PULLUP);  // Ensure wake-up pin is set correctly
+
+    // Initialize LCD
+    lcd.init();
+    lcd.backlight();
+    
+    // Initialize DS1302 RTC
+    rtc.Begin();
+    
+    // Check if RTC is running
+    if (!rtc.GetIsRunning()) {
+        Serial.println("RTC is not running! Setting time...");
+        rtc.SetIsRunning(true);
+        RtcDateTime dt(2025, 3, 14, 15, 52, 0);  // Set initial date/time
+        rtc.SetDateTime(dt);
+    }
+
+    // Increment boot count
+    bootCount++;
+    Serial.printf("Boot Count: %d\n", bootCount);
+
+    // Blink onboard LED for 3 seconds
+    for (int i = 0; i < 6; i++) {
+        digitalWrite(ONBOARD_LED, !digitalRead(ONBOARD_LED));
+        delay(500);
+    }
+    digitalWrite(ONBOARD_LED, LOW);
+
+    // Get current time from RTC
+    RtcDateTime now = rtc.GetDateTime();
+    Serial.printf("Time: %02d:%02d:%02d\n", now.Hour(), now.Minute(), now.Second());
+
+    // Display boot count on LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Boot Count: ");
+    lcd.print(bootCount);
+    lcd.setCursor(0, 1);
+    lcd.printf("Time: %02d:%02d:%02d", now.Hour(), now.Minute(), now.Second());
+
+    // Wait before sleeping
+    delay(3000);
+
+    // Set deep sleep
+    Serial.println("Going to deep sleep...");
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Sleeping...");
+    delay(2000);
+
+    // Enable GPIO wake-up for DS1302 RST pin (GPIO 4)
+    esp_deep_sleep_enable_gpio_wakeup((1ULL << DS1302_RST), ESP_GPIO_WAKEUP_GPIO_LOW);
+
+    // Enter deep sleep
+    esp_deep_sleep_start();
+}
+
+void loop() {
+    // Should never reach here (ESP32 sleeps)
+}
